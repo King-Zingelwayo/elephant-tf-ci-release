@@ -39,20 +39,20 @@ Elephant TF CI is a comprehensive Go TUI application that helps you create, mana
 
 **Linux:**
 ```bash
-curl -L https://github.com/King-Zingelwayo/go-github-actions-tui-app/releases/latest/download/elephant-tf-ci-linux-amd64 -o elephant-tf-ci
+curl -L https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest/download/elephant-tf-ci-linux-amd64 -o elephant-tf-ci
 chmod +x elephant-tf-ci
 sudo mv elephant-tf-ci /usr/local/bin/
 ```
 
 **macOS:**
 ```bash
-curl -L https://github.com/King-Zingelwayo/go-github-actions-tui-app/releases/latest/download/elephant-tf-ci-darwin-amd64 -o elephant-tf-ci
+curl -L https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest/download/elephant-tf-ci-darwin-amd64 -o elephant-tf-ci
 chmod +x elephant-tf-ci
 sudo mv elephant-tf-ci /usr/local/bin/
 ```
 
 **Windows:**
-Download `elephant-tf-ci-windows-amd64.exe` from [releases](https://github.com/King-Zingelwayo/go-github-actions-tui-app/releases/latest)
+Download `elephant-tf-ci-windows-amd64.exe` from [releases](https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest)
 
 
 ### Verify Installation
@@ -140,25 +140,6 @@ The application provides a comprehensive menu-driven interface:
 - 🔄 **Refresh Status** - Update pipeline status and recent runs
 - 💥 **Destroy Resources** - Safely destroy environment resources
 - ← **Navigation** - Easy back/forward navigation
-
-## 🏗️ Development
-
-### Build from Source
-
-```bash
-# Clone and build
-git clone https://github.com/King-Zingelwayo/go-github-actions-tui-app
-cd elephant-tf-ci
-go mod tidy
-make build
-
-# Run locally
-./bin/elephant-tf-ci
-```
-
-### Build for Multiple Platforms
-```bash
-make build-all
 ```
 
 ## 🏗️ What It Creates
