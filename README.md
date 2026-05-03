@@ -26,6 +26,7 @@ A Go TUI application for creating, managing, and destroying GitHub Actions CI/CD
 - **GitHub Integration** — Automatic repository and workflow file creation
 - **Multi-environment Support** — Works with any branch/environment structure
 - **Security Scanning** — Built-in Checkov, TFLint, and TFSec
+- **Cost Estimation** — Infracost runs on every PR and posts a cost diff comment before any changes are applied
 - **Custom AWS Regions** — Supports any AWS region including GovCloud
 - **Pipeline Discovery** — Automatically finds repositories with existing Terraform workflows
 - **Real-time Status** — Displays recent workflow runs with status indicators
@@ -115,6 +116,24 @@ Replace `YOUR-ACCOUNT-ID`, `YOUR-ORG`, and `YOUR-REPO` with your values.
 
 Attach the appropriate IAM policies for your Terraform resources (EC2, S3, etc.). Ensure the role has S3 access for the Terraform state bucket.
 
+### Infracost Setup
+
+Elephant TF CI uses [Infracost](https://www.infracost.io) to post a cost breakdown comment on every pull request, showing the estimated monthly cost change before anything is applied.
+
+**Step 1 — Get an API key**
+
+Sign up at [infracost.io](https://www.infracost.io) and retrieve your API key from the dashboard.
+
+**Step 2 — Add the secret to your repository**
+
+The pipeline expects the key as a GitHub Secret named `INFRACOST_API_KEY`. Elephant TF CI stores this automatically during pipeline creation if you provide the key during setup. To add it manually:
+
+```bash
+gh secret set INFRACOST_API_KEY --body "your-api-key" --repo YOUR-ORG/YOUR-REPO
+```
+
+Once configured, Infracost runs as part of the PR workflow and posts a comment showing the cost diff for the proposed infrastructure changes.
+
 ---
 
 ## Quick Start
@@ -162,12 +181,12 @@ Once a pipeline is selected, you can:
 
 | File | Purpose |
 |---|---|
-| `terraform.yml` | Full CI/CD workflow with PR-based plan and apply |
+| `terraform.yml` | Full CI/CD workflow with PR-based plan, cost estimation, and apply |
 | `destroy.yml` | Safe resource destruction workflow |
 
 ### Secrets and Configuration
 
-- **GitHub Secrets** — AWS region, S3 bucket name, and IAM role ARN, all encrypted at rest
+- **GitHub Secrets** — AWS region, S3 bucket name, IAM role ARN, and Infracost API key, all encrypted at rest
 - **OIDC Authentication** — Keyless AWS access; no long-lived credentials stored
 - **Branch Protection** — Environment-specific deployment rules
 
@@ -192,7 +211,7 @@ Once a pipeline is selected, you can:
 
 ### Pipeline Behavior
 
-- **Pull Requests** — Terraform plan runs automatically; no apply
+- **Pull Requests** — Terraform plan and Infracost cost estimate run automatically; a cost diff comment is posted to the PR; no apply
 - **PR merge to `main`/`master`** — Plan and apply to the detected environment
 - **PR merge to other branches** — Plan and apply to a branch-specific environment
 - **Direct push to branches** — Plan only; no apply
@@ -250,15 +269,16 @@ Destroying resources follows a multi-step process to prevent accidents:
 - AWS access uses OIDC web identity; no static credentials stored in GitHub Secrets
 - IAM roles can be scoped per environment or branch
 
-### Scanning
+### Scanning and Cost Estimation
 
-The generated workflows include integrated scanning using:
+The generated workflows include integrated scanning and cost analysis using:
 
 - **Checkov** — Infrastructure policy and compliance checks
 - **TFLint** — Terraform-specific linting and best practices
 - **TFSec** — Security-focused static analysis for Terraform
+- **Infracost** — Cost estimation on every PR; posts a monthly cost diff comment before any changes are applied
 
-Scan failures can be configured to block or warn without blocking, depending on your team's requirements.
+Scan failures can be configured to block or warn without blocking, depending on your team's requirements. Infracost always runs in non-blocking mode and posts its output as a PR comment for reviewer awareness.
 
 ### Audit Trail
 
