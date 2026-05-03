@@ -1,6 +1,6 @@
 # Elephant TF CI
 
-A Go TUI application for creating, managing, and destroying Terraform GitHub Actions CI/CD pipelines with AWS OIDC authentication. Built for engineers who want infrastructure automation without the overhead.
+A Go-powered terminal UI that spins up production-ready Terraform CI/CD pipelines on GitHub Actions with AWS OIDC authentication — from zero to fully automated infrastructure in minutes.
 
 ---
 
