@@ -1,331 +1,271 @@
-# 🐘 Elephant TF CI - Terraform Pipeline Generator
+# Elephant TF CI
 
-**Ubuntu-powered CI/CD Pipeline Setup & Management Tool**
+A Go TUI application for creating, managing, and destroying GitHub Actions CI/CD pipelines with AWS OIDC authentication. Built for engineers who want infrastructure automation without the overhead.
 
-Elephant TF CI is a comprehensive Go TUI application that helps you create, manage, and destroy GitHub Actions CI/CD pipelines with AWS OIDC authentication. Built with Ubuntu philosophy - "I am because we are."
+---
 
-## ✨ Features
+## Table of Contents
 
-### 🚀 **Pipeline Creation**
-- 🎨 **Interactive TUI** - Beautiful terminal interface using Bubble Tea
-- 🔐 **OIDC Authentication** - Secure keyless AWS authentication
-- 📁 **GitHub Integration** - Automatic repository and workflow creation
-- 🔧 **Multi-Environment** - Support for any branch/environment structure
-- 🛡️ **Security Scanning** - Built-in Checkov, TFLint, and TFSec
-- 🌐 **Custom AWS Regions** - Support for any AWS region including
+- [Features](#features)
+- [Installation](#installation)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [What It Creates](#what-it-creates)
+- [Configuration](#configuration)
+- [Pipeline Management](#pipeline-management)
+- [Security](#security)
+- [License](#license)
 
-### 📊 **Pipeline Management**
-- 📋 **Pipeline Discovery** - Automatically finds repositories with Terraform workflows
-- 🔄 **Real-time Status** - Shows recent workflow runs with status indicators
-- 🌐 **Browser Integration** - Direct links to GitHub repository and Actions
-- 📈 **Workflow Monitoring** - View last 5 workflow runs with timestamps and links
+---
 
-### 💥 **Resource Destruction**
-- 🧠 **Smart Environment Detection** - Automatically detects environments from tfvars files
-- 🌳 **Branch-based Environments** - Uses actual repository branches
-- 🛡️ **Triple Confirmation** - Multiple safety checks before destruction
-- 🎯 **Targeted Destruction** - Destroy specific environments, not everything
-- 🔍 **State Validation** - Checks for actual resources before destroying
-- 🗑️ **Smart Bucket Management** - Only deletes S3 bucket when resources are destroyed
-- 🔄 **Auto-workflow Updates** - Ensures destroy workflows are always current
+## Features
 
-### 🌍 **Ubuntu Spirit**
-- 🤝 **Community-driven** - Embracing African tech excellence
-- 🔓 **Open Source** - Free and accessible to all developers
+- **Interactive TUI** — Terminal interface built with Bubble Tea for guided pipeline setup
+- **OIDC Authentication** — Keyless AWS authentication using GitHub web identity; no stored credentials
+- **GitHub Integration** — Automatic repository and workflow file creation
+- **Multi-environment Support** — Works with any branch/environment structure
+- **Security Scanning** — Built-in Checkov, TFLint, and TFSec
+- **Custom AWS Regions** — Supports any AWS region including GovCloud
+- **Pipeline Discovery** — Automatically finds repositories with existing Terraform workflows
+- **Real-time Status** — Displays recent workflow runs with status indicators
+- **Smart Destroy** — Detects environments from `tfvars` files before destruction, with multi-step confirmation
 
-## 📦 Installation
+---
 
-### Quick Install (Recommended)
+## Installation
 
-**Linux:**
+### Linux
+
 ```bash
 curl -L https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest/download/elephant-tf-ci-linux-amd64 -o elephant-tf-ci
 chmod +x elephant-tf-ci
 sudo mv elephant-tf-ci /usr/local/bin/
 ```
 
-**macOS:**
+### macOS
+
 ```bash
 curl -L https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest/download/elephant-tf-ci-darwin-amd64 -o elephant-tf-ci
 chmod +x elephant-tf-ci
 sudo mv elephant-tf-ci /usr/local/bin/
 ```
 
-**Windows:**
-Download `elephant-tf-ci-windows-amd64.exe` from [releases](https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest)
+### Windows
 
+Download `elephant-tf-ci-windows-amd64.exe` from the [releases page](https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest).
 
-### Verify Installation
+### Verify
+
 ```bash
 elephant-tf-ci
 ```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-1. **AWS OIDC Setup**
-
-   **Step 1: Create OIDC Identity Provider**
-   ```bash
-   # AWS Console: IAM → Identity providers → Add provider
-   # OR AWS CLI:
-   aws iam create-open-id-connect-provider \
-     --url https://token.actions.githubusercontent.com \
-     --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
-     --client-id-list sts.amazonaws.com
-   ```
-
-   **Step 2: Create IAM Role with Web Identity**
-   ```bash
-   # AWS Console: IAM → Roles → Create role → Web identity
-   # Identity provider: token.actions.githubusercontent.com
-   # Audience: sts.amazonaws.com
-   ```
-
-   **Step 3: Configure Trust Policy**
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Principal": {
-           "Federated": "arn:aws:iam::YOUR-ACCOUNT-ID:oidc-provider/token.actions.githubusercontent.com"
-         },
-         "Action": "sts:AssumeRoleWithWebIdentity",
-         "Condition": {
-           "StringEquals": {
-             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-           },
-           "StringLike": {
-             "token.actions.githubusercontent.com:sub": "repo:YOUR-ORG/YOUR-REPO:*"
-           }
-         }
-       }
-     ]
-   }
-   ```
-
-   **Step 4: Attach Permissions Policy**
-   - Attach policies for Terraform operations (EC2, S3, etc.)
-   - Ensure S3 access for Terraform state bucket
-
-### Usage
-
-```bash
-# Run the application
-elephant-tf-ci
-```
-
-#### 🎨 **Interactive Menu System**
-
-The application provides a comprehensive menu-driven interface:
-
-**Main Menu Options:**
-- 🚀 **Create New Pipeline** - Set up CI/CD for a new repository
-- 📋 **View Existing Pipelines** - Manage existing Terraform workflows
-- 🚪 **Exit** - Close the application
-
-**Pipeline Creation Flow:**
-1. 🔐 **GitHub Authentication** - One-time OAuth setup
-2. 📁 **Repository Selection** - Choose from your repositories and branches
-3. ☁️ **AWS Configuration** - Set region, S3 bucket, and IAM role
-4. 📁 **Repository Settings** - Configure description and visibility
-5. 🔍 **Review & Confirm** - Final confirmation before creation
-
-**Pipeline Management Options:**
-- 🌐 **Open Repository** - Launch GitHub repository in browser
-- 📋 **Open GitHub Actions** - View workflow runs and logs
-- 🔄 **Refresh Status** - Update pipeline status and recent runs
-- 💥 **Destroy Resources** - Safely destroy environment resources
-- ← **Navigation** - Easy back/forward navigation
-```
-
-## 🏗️ What It Creates
-
-### 📝 **Workflow Files**
-- ✅ **terraform.yml** - Complete CI/CD workflow with PR-based approval
-- ✅ **destroy.yml** - Safe resource destruction workflow
-
-### 🔐 **Security & Configuration**
-- ✅ **GitHub Secrets** - Encrypted AWS configuration (region, S3 bucket, role ARN)
-- ✅ **OIDC Authentication** - Keyless AWS access with web identity
-- ✅ **Branch Protection** - Environment-specific deployment rules
-
-### 🛡️ **Built-in Safety Features**
-- ✅ **Security Scanning** - Checkov, TFLint, and TFSec integration
-- ✅ **Multi-environment Support** - Automatic environment detection
-- ✅ **PR-based Approval** - Plan on PRs, apply only on merge
-- ✅ **Triple Confirmation** - Multiple safety checks for destruction
-- ✅ **Smart tfvars Detection** - Automatic variable file discovery
-
-## 🔧 Configuration
-
-### 🐙 **GitHub Settings**
-- **OAuth Authentication** - Secure token-based access (no manual tokens needed)
-- **Repository Selection** - Choose from your accessible repositories
-- **Branch Selection** - Pick target branch for pipeline deployment
-- **Repository Settings** - Description and visibility preferences
-
-### ☁️ **AWS Settings**
-- **Region Selection** - Choose from popular regions or enter custom region
-- **S3 State Bucket** - Terraform state storage location
-- **IAM Role ARN** - Pipeline execution role (contains account ID)
-- **Security Options** - Choose to fail or continue on security issues
-
-### 🚀 **Pipeline Features**
-- **PR-based Approval** - Plan runs on PRs, apply only after merge
-- **Smart Environment Detection** - Automatic detection from tfvars files
-- **Branch-based Deployments** - Uses actual repository branch structure
-- **Security Scanning** - Checkov, TFLint, TFSec with configurable failure
-- **OIDC Authentication** - Keyless AWS access with web identity
-- **Flexible tfvars** - Works with or without variable files
-- **Feature Branch Protection** - No apply on feature/ branches
-- **Custom Regions** - Support for any AWS region including GovCloud
-
-### 📊 **Management Features**
-- **Pipeline Discovery** - Automatically finds existing Terraform workflows
-- **Status Monitoring** - Real-time workflow run status and history
-- **Browser Integration** - Direct links to GitHub repository and Actions
-- **Safe Destruction** - Multi-step confirmation for resource cleanup
-- **Auto-updates** - Keeps workflow templates current
-
-## 📊 Pipeline Management
-
-### 🔍 **Discovery & Monitoring**
-- **Auto-discovery** - Finds all repositories with Terraform workflows
-- **Real-time Status** - Shows recent workflow runs with status icons (✅❌🔄⏳)
-- **Direct Links** - Click-to-open GitHub repository and Actions pages
-- **Workflow History** - View last 5 runs with timestamps and branch info
-
-### 💥 **Resource Destruction**
-- **Smart Detection** - Automatically detects environments from tfvars files
-- **Branch-based** - Uses actual repository branches when no tfvars environment found
-- **Safety First** - Triple confirmation process with typed verification
-- **Targeted** - Destroy specific environments, not everything
-- **Auto-update** - Ensures destroy workflows use latest templates
-
-### 🧠 **Environment Detection Logic**
-```
-If tfvars file exists with environment variable:
-  → Show "Environment: production (branch: main)"
-  → Use environment name for Terraform state path
-
-If no environment variable in tfvars:
-  → Show "Branch: main"
-  → Use branch name for Terraform state path
-
-If no tfvars file:
-  → Show "Branch: main"
-  → Use branch name for Terraform state path
-```
-
-## 🛡️ Security & Workflow
-
-### Security Features
-- **OIDC Authentication** - Keyless AWS access with GitHub web identity
-- **No Stored Credentials** - No long-term AWS credentials in secrets
-- **Branch-specific Roles** - IAM role restrictions per environment
-- **Encrypted Secrets** - All GitHub secrets encrypted at rest
-- **Security Scanning** - Integrated Checkov, TFLint, and TFSec
-- **Audit Trail** - All actions logged in GitHub Actions
-
-### Approval Workflow
-1. **Create PR** → Terraform plan runs automatically
-2. **Review PR** → Code and infrastructure changes reviewed together
-3. **Approve & Merge** → Single approval gate for both code and infra
-4. **Auto Deploy** → Apply runs only on PR merge (not direct push)
-
-### Branch Behavior
-- **PRs** → Plan only (shows proposed changes)
-- **PR merge to main/master** → Plan + Apply to detected environment
-- **PR merge to other branches** → Plan + Apply to branch-specific environment
-- **Direct push to branches** → Plan only (no apply)
-- **feature/** branches → Plan only (no apply)
-
-### Destruction Safety
-1. **Environment Selection** → Choose specific environment to destroy
-2. **Risk Warning** → Clear explanation of what will be destroyed
-3. **Typed Confirmation** → Must type exact repository/environment name
-4. **Final Warning** → Last chance to cancel before destruction
-5. **State Validation** → Checks for actual resources in Terraform state
-6. **Conditional Execution** → Skips destroy if no resources exist
-7. **Smart Cleanup** → Only deletes S3 bucket after successful resource destruction
-
-## 🧠 Smart Environment Detection
-
-Elephant TF CI intelligently detects environments using a sophisticated approach:
-
-### 🔍 **Detection Logic**
-
-1. **Check tfvars Files** - Scans for environment variables in:
-   - `terraform.tfvars`
-   - `variables.tfvars`
-   - `{branch-name}.tfvars`
-   - `env.tfvars`
-
-2. **Parse Environment Variables** - Looks for patterns like:
-   ```hcl
-   environment = "production"
-   env = "development"
-   ```
-
-3. **Fallback to Branch Names** - Uses branch name if no environment found
-
-### 📊 **Environment Display Examples**
-
-**With tfvars environment:**
-```
-✅ Environment: production (branch: main)
-✅ Environment: development (branch: dev)
-```
-
-**Without tfvars environment:**
-```
-🌳 Branch: main
-🌳 Branch: dev
-```
-
-## 📊 Pipeline Management Workflow
-
-### 🔍 **View Existing Pipelines**
-1. **Auto-discovery** - Scans all accessible repositories
-2. **Filter by Workflows** - Shows only repos with Terraform workflows
-3. **Select Repository** - Choose from discovered pipelines
-4. **Pipeline Status** - View recent runs, links, and management options
-
-### 💥 **Resource Destruction Process**
-1. **Environment Selection** - Choose from detected environments/branches
-2. **Risk Warning** - Clear explanation of destruction scope
-3. **Typed Confirmation** - Must type exact repository/environment name
-4. **Final Warning** - Last chance to cancel
-5. **AWS Configuration** - Specify region and S3 bucket
-6. **State Validation** - Checks if resources exist in Terraform state
-7. **Conditional Destroy** - Only destroys if resources are found
-8. **Smart Bucket Cleanup** - Deletes S3 bucket only after successful resource destruction
-
-### 🔍 **Smart Destroy Logic**
-- **Resource Detection** - Scans Terraform state before attempting destroy
-- **Skip Empty States** - Preserves S3 bucket if no resources exist
-- **Conditional Cleanup** - Only removes infrastructure when resources are actually destroyed
-- **Safety First** - Prevents accidental bucket deletion on empty states
-
-### 🔄 **Workflow Updates**
-- **Auto-sync Templates** - Ensures workflows use latest templates
-- **Backward Compatibility** - Updates old workflows to new format
-- **Template Embedding** - No external dependencies for workflow creation
-
-### 🎆 **Community Impact**
-- **Accessibility** - Free and open-source for all developers
-- **Education** - Promotes modern DevOps practices
-- **Empowerment** - Enables infrastructure automation for everyone
-- **Excellence** - Showcases African tech innovation
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
 
 ---
 
-**Sawubona!** 🐘 Happy building with Elephant TF CI!
+## Prerequisites
+
+### AWS OIDC Setup
+
+Elephant TF CI uses OIDC for keyless AWS authentication. Complete this setup once before creating your first pipeline.
+
+**Step 1 — Create an OIDC Identity Provider**
+
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --client-id-list sts.amazonaws.com
+```
+
+Alternatively, create it via the AWS Console: IAM → Identity providers → Add provider.
+
+**Step 2 — Create an IAM Role with Web Identity**
+
+In the AWS Console: IAM → Roles → Create role → Web identity. Select `token.actions.githubusercontent.com` as the identity provider and `sts.amazonaws.com` as the audience.
+
+**Step 3 — Configure the Trust Policy**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR-ACCOUNT-ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR-ORG/YOUR-REPO:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+Replace `YOUR-ACCOUNT-ID`, `YOUR-ORG`, and `YOUR-REPO` with your values.
+
+**Step 4 — Attach a Permissions Policy**
+
+Attach the appropriate IAM policies for your Terraform resources (EC2, S3, etc.). Ensure the role has S3 access for the Terraform state bucket.
+
+---
+
+## Quick Start
+
+```bash
+elephant-tf-ci
+```
+
+The application launches an interactive menu. Use arrow keys to navigate and Enter to select.
+
+---
+
+## Usage
+
+### Main Menu
+
+| Option | Description |
+|---|---|
+| Create New Pipeline | Set up a CI/CD pipeline for a new repository |
+| View Existing Pipelines | Manage and monitor existing Terraform workflows |
+| Exit | Close the application |
+
+### Pipeline Creation Flow
+
+1. **GitHub Authentication** — One-time OAuth setup; no manual token management required
+2. **Repository Selection** — Choose from your accessible repositories and branches
+3. **AWS Configuration** — Set the region, S3 state bucket, and IAM role ARN
+4. **Repository Settings** — Configure description and visibility
+5. **Review & Confirm** — Final summary before any resources are created
+
+### Pipeline Management Options
+
+Once a pipeline is selected, you can:
+
+- Open the repository directly in your browser
+- Open GitHub Actions to view workflow runs and logs
+- Refresh pipeline status and recent run history
+- Destroy environment resources with guided confirmation
+
+---
+
+## What It Creates
+
+### Workflow Files
+
+| File | Purpose |
+|---|---|
+| `terraform.yml` | Full CI/CD workflow with PR-based plan and apply |
+| `destroy.yml` | Safe resource destruction workflow |
+
+### Secrets and Configuration
+
+- **GitHub Secrets** — AWS region, S3 bucket name, and IAM role ARN, all encrypted at rest
+- **OIDC Authentication** — Keyless AWS access; no long-lived credentials stored
+- **Branch Protection** — Environment-specific deployment rules
+
+---
+
+## Configuration
+
+### GitHub Settings
+
+- Authentication via OAuth (no manual token management)
+- Repository and branch selection from your accessible resources
+- Configurable description and visibility
+
+### AWS Settings
+
+| Setting | Description |
+|---|---|
+| Region | Any AWS region, including GovCloud |
+| S3 State Bucket | Location for Terraform remote state |
+| IAM Role ARN | Execution role for the pipeline |
+| Security Options | Configure whether security scan failures block the pipeline |
+
+### Pipeline Behavior
+
+- **Pull Requests** — Terraform plan runs automatically; no apply
+- **PR merge to `main`/`master`** — Plan and apply to the detected environment
+- **PR merge to other branches** — Plan and apply to a branch-specific environment
+- **Direct push to branches** — Plan only; no apply
+- **`feature/` branches** — Plan only; no apply
+
+---
+
+## Pipeline Management
+
+### Discovery and Monitoring
+
+The management view automatically scans all accessible repositories for Terraform workflows. For each pipeline you can view:
+
+- Recent run status using standard indicators (success, failure, in progress, queued)
+- The last 5 workflow runs with timestamps and branch info
+- Direct links to the GitHub repository and Actions tab
+
+### Environment Detection
+
+Elephant TF CI determines the target environment using the following logic:
+
+1. Scans for environment variables in `terraform.tfvars`, `variables.tfvars`, `{branch-name}.tfvars`, and `env.tfvars`
+2. If an `environment` or `env` variable is found, uses that value for the Terraform state path
+3. Falls back to the branch name if no environment variable is present
+
+**Examples:**
+
+```
+# tfvars file contains environment = "production"
+Environment: production (branch: main)
+
+# No environment variable found
+Branch: main
+```
+
+### Resource Destruction
+
+Destroying resources follows a multi-step process to prevent accidents:
+
+1. **Environment Selection** — Choose the specific environment to target
+2. **Risk Warning** — Clear description of what will be destroyed
+3. **Typed Confirmation** — Must type the exact repository and environment name
+4. **Final Warning** — Last opportunity to cancel
+5. **State Validation** — Checks for actual resources in Terraform state before proceeding
+6. **Conditional Execution** — Skips destruction if no resources are found in state
+7. **Smart Cleanup** — Deletes the S3 state bucket only after resources have been successfully destroyed
+
+---
+
+## Security
+
+### Authentication
+
+- GitHub access uses OAuth; no long-lived personal access tokens
+- AWS access uses OIDC web identity; no static credentials stored in GitHub Secrets
+- IAM roles can be scoped per environment or branch
+
+### Scanning
+
+The generated workflows include integrated scanning using:
+
+- **Checkov** — Infrastructure policy and compliance checks
+- **TFLint** — Terraform-specific linting and best practices
+- **TFSec** — Security-focused static analysis for Terraform
+
+Scan failures can be configured to block or warn without blocking, depending on your team's requirements.
+
+### Audit Trail
+
+All workflow executions are logged in GitHub Actions and visible in the Actions tab of each repository.
+
+---
+
+## License
+
+MIT License — see the [LICENSE](LICENSE) file for details.
