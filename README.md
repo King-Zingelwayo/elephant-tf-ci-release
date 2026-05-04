@@ -59,7 +59,7 @@ Download `elephant-tf-ci-windows-amd64.exe` from the [releases page](https://git
 ### Verify
 
 ```bash
-elephant-tf-ci
+elephant-tf-ci --version
 ```
 
 ---
