@@ -116,23 +116,15 @@ Replace `YOUR-ACCOUNT-ID`, `YOUR-ORG`, and `YOUR-REPO` with your values.
 
 Attach the appropriate IAM policies for your Terraform resources (EC2, S3, etc.). Ensure the role has S3 access for the Terraform state bucket.
 
-### Infracost Setup
+### ## Infracost Setup
 
-Elephant TF CI uses [Infracost](https://www.infracost.io) to post a cost breakdown comment on every pull request, showing the estimated monthly cost change before anything is applied.
+Elephant TF CI optionally integrates with Infracost to post a cost breakdown comment on every pull request, showing the estimated monthly cost change before anything is applied.
 
-**Step 1 — Get an API key**
+During setup, the CLI will prompt you for an Infracost API key. This step is optional — if you skip it, cost estimation is omitted from the PR workflow and everything else continues as normal.
 
-Sign up at [infracost.io](https://www.infracost.io) and retrieve your API key from the dashboard.
+If a key is provided, Elephant TF CI handles the rest automatically — no manual configuration required.
 
-**Step 2 — Add the secret to your repository**
-
-The pipeline expects the key as a GitHub Secret named `INFRACOST_API_KEY`. Elephant TF CI stores this automatically during pipeline creation if you provide the key during setup. To add it manually:
-
-```bash
-gh secret set INFRACOST_API_KEY --body "your-api-key" --repo YOUR-ORG/YOUR-REPO
-```
-
-Once configured, Infracost runs as part of the PR workflow and posts a comment showing the cost diff for the proposed infrastructure changes.
+> Get your API key at [infracost.io](https://infracost.io)
 
 ---
 
