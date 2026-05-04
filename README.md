@@ -116,7 +116,7 @@ Replace `YOUR-ACCOUNT-ID`, `YOUR-ORG`, and `YOUR-REPO` with your values.
 
 Attach the appropriate IAM policies for your Terraform resources (EC2, S3, etc.). Ensure the role has S3 access for the Terraform state bucket.
 
-### ## Infracost Setup
+### Infracost Setup
 
 Elephant TF CI optionally integrates with Infracost to post a cost breakdown comment on every pull request, showing the estimated monthly cost change before anything is applied.
 
