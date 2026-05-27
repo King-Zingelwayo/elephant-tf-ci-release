@@ -1,36 +1,32 @@
 # Elephant TF CI
 
-A Go-powered TUI application that spins up production-ready Terraform CI/CD pipelines on GitHub Actions with AWS OIDC authentication — from zero to fully automated infrastructure in minutes.
+A Go terminal app that creates and manages production-ready Terraform CI/CD pipelines on GitHub Actions — with AWS OIDC, S3 remote state, PR plan comments, security scanning, optional Infracost, and optional AI review.
+
+Built for repositories with a single Terraform root or many Terraform Cloud-style workspaces.
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
 - [Installation](#installation)
-- [Prerequisites](#prerequisites)
+- [AWS Prerequisites](#aws-prerequisites)
 - [Quick Start](#quick-start)
-- [Usage](#usage)
-- [What It Creates](#what-it-creates)
-- [Configuration](#configuration)
-- [Pipeline Management](#pipeline-management)
-- [Security](#security)
+- [Pipeline Creation Flow](#pipeline-creation-flow)
+- [Workspaces](#workspaces)
+- [Workspace Dependencies](#workspace-dependencies)
+- [YAML Workspace Variables](#yaml-workspace-variables)
+- [GitHub Secrets and Variables](#github-secrets-and-variables)
+- [PR Workflow Behavior](#pr-workflow-behavior)
+- [AI Review](#ai-review)
+- [Infracost](#infracost)
+- [Security and Cost Governance](#security-and-cost-governance)
+- [Destroy Workflow](#destroy-workflow)
+- [Generated Files](#generated-files)
+- [Management View](#management-view)
+- [Teams and Collaboration](#teams-and-collaboration)
+- [Development](#development)
+- [Release](#release)
 - [License](#license)
-
----
-
-## Features
-
-- **Interactive TUI** — Terminal interface built with Bubble Tea for guided pipeline setup
-- **OIDC Authentication** — Keyless AWS authentication using GitHub web identity; no stored credentials
-- **GitHub Integration** — Automatic repository and workflow file creation
-- **Multi-environment Support** — Works with any branch/environment structure
-- **Security Scanning** — Built-in Checkov, TFLint, and TFSec
-- **Cost Estimation** — Infracost runs on every PR and posts a cost diff comment before any changes are applied
-- **Custom AWS Regions** — Supports any AWS region including GovCloud
-- **Pipeline Discovery** — Automatically finds repositories with existing Terraform workflows
-- **Real-time Status** — Displays recent workflow runs with status indicators
-- **Smart Destroy** — Detects environments from `tfvars` files before destruction, with multi-step confirmation
 
 ---
 
@@ -54,7 +50,7 @@ sudo mv elephant-tf-ci /usr/local/bin/
 
 ### Windows
 
-Download `elephant-tf-ci-windows-amd64.exe` from the [releases page](https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest).
+Download `elephant-tf-ci-windows-amd64.exe` from the [latest release](https://github.com/King-Zingelwayo/elephant-tf-ci-release/releases/latest).
 
 ### Verify
 
@@ -64,13 +60,11 @@ elephant-tf-ci --version
 
 ---
 
-## Prerequisites
+## AWS Prerequisites
 
-### AWS OIDC Setup
+Elephant TF CI requires an AWS IAM role that GitHub Actions can assume via OIDC. No long-lived credentials are used.
 
-Elephant TF CI uses OIDC for keyless AWS authentication. Complete this setup once before creating your first pipeline.
-
-**Step 1 — Create an OIDC Identity Provider**
+**1. Create the GitHub OIDC provider** (once per AWS account):
 
 ```bash
 aws iam create-open-id-connect-provider \
@@ -79,13 +73,7 @@ aws iam create-open-id-connect-provider \
   --client-id-list sts.amazonaws.com
 ```
 
-Alternatively, create it via the AWS Console: IAM → Identity providers → Add provider.
-
-**Step 2 — Create an IAM Role with Web Identity**
-
-In the AWS Console: IAM → Roles → Create role → Web identity. Select `token.actions.githubusercontent.com` as the identity provider and `sts.amazonaws.com` as the audience.
-
-**Step 3 — Configure the Trust Policy**
+**2. Create an IAM role** with this trust policy:
 
 ```json
 {
@@ -94,7 +82,7 @@ In the AWS Console: IAM → Roles → Create role → Web identity. Select `toke
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::YOUR-ACCOUNT-ID:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -102,7 +90,7 @@ In the AWS Console: IAM → Roles → Create role → Web identity. Select `toke
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR-ORG/YOUR-REPO:*"
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
         }
       }
     }
@@ -110,21 +98,7 @@ In the AWS Console: IAM → Roles → Create role → Web identity. Select `toke
 }
 ```
 
-Replace `YOUR-ACCOUNT-ID`, `YOUR-ORG`, and `YOUR-REPO` with your values.
-
-**Step 4 — Attach a Permissions Policy**
-
-Attach the appropriate IAM policies for your Terraform resources (EC2, S3, etc.). Ensure the role has S3 access for the Terraform state bucket.
-
-### Infracost Setup
-
-Elephant TF CI optionally integrates with Infracost to post a cost breakdown comment on every pull request, showing the estimated monthly cost change before anything is applied.
-
-During setup, the CLI will prompt you for an Infracost API key. This step is optional — if you skip it, cost estimation is omitted from the PR workflow and everything else continues as normal.
-
-If a key is provided, Elephant TF CI handles the rest automatically — no manual configuration required.
-
-> Get your API key at [infracost.io](https://infracost.io)
+**3. Attach permissions** for your Terraform-managed resources and the S3 state bucket. If using a customer-managed KMS key, also include KMS permissions for that key.
 
 ---
 
@@ -134,150 +108,383 @@ If a key is provided, Elephant TF CI handles the rest automatically — no manua
 elephant-tf-ci
 ```
 
-The application launches an interactive menu. Use arrow keys to navigate and Enter to select.
+### Navigation
+
+| Key | Action |
+|-----|--------|
+| `n` | Init Wizard / Create Project |
+| `1` | Dashboard |
+| `2` | Projects |
+| `3` | Runs |
+| `4` | Settings |
+| `?` | Help |
+| `esc` | Back |
+| `q` | Quit |
+
+The app stores its config at `~/.config/elephant-tf-ci/elephant.yml` (Linux) after first setup. GitHub tokens are stored in the OS keychain — never in the config file.
 
 ---
 
-## Usage
+## Pipeline Creation Flow
 
-### Main Menu
+Run `Init Wizard` from the main menu and follow these steps:
 
-| Option | Description |
-|---|---|
-| Create New Pipeline | Set up a CI/CD pipeline for a new repository |
-| View Existing Pipelines | Manage and monitor existing Terraform workflows |
-| Exit | Close the application |
-
-### Pipeline Creation Flow
-
-1. **GitHub Authentication** — One-time OAuth setup; no manual token management required
-2. **Repository Selection** — Choose from your accessible repositories and branches
-3. **AWS Configuration** — Set the region, S3 state bucket, and IAM role ARN
-4. **Repository Settings** — Configure description and visibility
-5. **Review & Confirm** — Final summary before any resources are created
-
-### Pipeline Management Options
-
-Once a pipeline is selected, you can:
-
-- Open the repository directly in your browser
-- Open GitHub Actions to view workflow runs and logs
-- Refresh pipeline status and recent run history
-- Destroy environment resources with guided confirmation
+1. Authenticate with GitHub via Device Flow (no token pasting required).
+2. Select repository and branch.
+3. Choose **Simple** (single workspace) or **Landing Zone** (multi-workspace DAG) mode.
+4. Review discovered Terraform roots and select which become workspaces.
+5. _(Landing Zone)_ Customize workspace project, AWS account, environment, and IAM role.
+6. _(Landing Zone)_ Configure workspace dependencies.
+7. Set the default workspace for manual runs.
+8. Configure AWS region and IAM role ARN.
+9. _(Optional)_ Configure variable sets.
+10. _(Optional)_ Enable KMS encryption for state.
+11. _(Optional)_ Enable Infracost.
+12. Choose AI reviewer: **Claude**, **Gemini**, or **Disabled**.
+13. Review and confirm — the pipeline is created.
 
 ---
 
-## What It Creates
+## Workspaces
 
-### Workflow Files
+Elephant TF CI scans the selected branch for Terraform root modules and maps each one to a workflow workspace.
 
-| File | Purpose |
-|---|---|
-| `terraform.yml` | Full CI/CD workflow with PR-based plan, cost estimation, and apply |
-| `destroy.yml` | Safe resource destruction workflow |
+Each workspace gets:
 
-### Secrets and Configuration
+- A name derived from its Terraform root path
+- A project grouping
+- An AWS account profile (defaults to the pipeline account; more can be added later)
+- A working directory
+- A GitHub environment for apply protection
+- Its own S3 state key: `<workspace>/terraform.tfstate`
 
-- **GitHub Secrets** — AWS region, S3 bucket name, IAM role ARN, and Infracost API key, all encrypted at rest
-- **OIDC Authentication** — Keyless AWS access; no long-lived credentials stored
-- **Branch Protection** — Environment-specific deployment rules
+**Example:**
 
----
-
-## Configuration
-
-### GitHub Settings
-
-- Authentication via OAuth (no manual token management)
-- Repository and branch selection from your accessible resources
-- Configurable description and visibility
-
-### AWS Settings
-
-| Setting | Description |
-|---|---|
-| Region | Any AWS region, including GovCloud |
-| S3 State Bucket | Location for Terraform remote state |
-| IAM Role ARN | Execution role for the pipeline |
-| Security Options | Configure whether security scan failures block the pipeline |
-
-### Pipeline Behavior
-
-- **Pull Requests** — Terraform plan and Infracost cost estimate run automatically; a cost diff comment is posted to the PR; no apply
-- **PR merge to `main`/`master`** — Plan and apply to the detected environment
-- **PR merge to other branches** — Plan and apply to a branch-specific environment
-- **Direct push to branches** — Plan only; no apply
-- **`feature/` branches** — Plan only; no apply
-
----
-
-## Pipeline Management
-
-### Discovery and Monitoring
-
-The management view automatically scans all accessible repositories for Terraform workflows. For each pipeline you can view:
-
-- Recent run status using standard indicators (success, failure, in progress, queued)
-- The last 5 workflow runs with timestamps and branch info
-- Direct links to the GitHub repository and Actions tab
-
-### Environment Detection
-
-Elephant TF CI determines the target environment using the following logic:
-
-1. Scans for environment variables in `terraform.tfvars`, `variables.tfvars`, `{branch-name}.tfvars`, and `env.tfvars`
-2. If an `environment` or `env` variable is found, uses that value for the Terraform state path
-3. Falls back to the branch name if no environment variable is present
-
-**Examples:**
-
-```
-# tfvars file contains environment = "production"
-Environment: production (branch: main)
-
-# No environment variable found
-Branch: main
+```text
+network-prod  →  infra/network/prod  →  network-prod/terraform.tfstate
+app-prod      →  infra/app/prod      →  app-prod/terraform.tfstate
 ```
 
-### Resource Destruction
+---
 
-Destroying resources follows a multi-step process to prevent accidents:
+## Workspace Dependencies
 
-1. **Environment Selection** — Choose the specific environment to target
-2. **Risk Warning** — Clear description of what will be destroyed
-3. **Typed Confirmation** — Must type the exact repository and environment name
-4. **Final Warning** — Last opportunity to cancel
-5. **State Validation** — Checks for actual resources in Terraform state before proceeding
-6. **Conditional Execution** — Skips destruction if no resources are found in state
-7. **Smart Cleanup** — Deletes the S3 state bucket only after resources have been successfully destroyed
+Dependencies mimic Terraform Cloud run ordering.
+
+If `app-prod` depends on `network-prod`:
+
+- A PR touching `app-prod` checks that `network-prod/terraform.tfstate` exists in S3.
+- If upstream state is missing, the workflow blocks before plan runs.
+- When upstream state exists, its outputs are injected as `TF_VAR_*` values before plan/apply.
+- If a PR touches both workspaces, the downstream workspace (`app-prod`) is selected automatically.
+- PRs touching multiple **independent** workspace roots are blocked — changes must be split into separate PRs.
+
+**Recommended merge order for a new landing zone:**
+
+```text
+1. Open and merge network-prod PR
+2. Open and merge app-prod PR
+3. Open and merge monitoring-prod PR
+```
 
 ---
 
-## Security
+## YAML Workspace Variables
 
-### Authentication
+Store non-secret Terraform input variables in repo-managed YAML files instead of committing `*.tfvars`.
 
-- GitHub access uses OAuth; no long-lived personal access tokens
-- AWS access uses OIDC web identity; no static credentials stored in GitHub Secrets
-- IAM roles can be scoped per environment or branch
+**Supported paths:**
 
-### Scanning and Cost Estimation
+```text
+workspace-automation/<workspace>.yml
+automation/<workspace>.yml
+```
 
-The generated workflows include integrated scanning and cost analysis using:
+**Variable resolution order:**
 
-- **Checkov** — Infrastructure policy and compliance checks
-- **TFLint** — Terraform-specific linting and best practices
-- **TFSec** — Security-focused static analysis for Terraform
-- **Infracost** — Cost estimation on every PR; posts a monthly cost diff comment before any changes are applied
+1. Workspace YAML file (`workspace-automation/` or `automation/`)
+2. `*.tfvars` files in the working directory
+3. `variables.tf` defaults
 
-Scan failures can be configured to block or warn without blocking, depending on your team's requirements. Infracost always runs in non-blocking mode and posts its output as a PR comment for reviewer awareness.
+**Example `automation/networking.yml`:**
 
-### Audit Trail
+```yaml
+variables:
+  environment: prod
+  vpc_cidr: 10.20.0.0/16
+  public_subnet_cidrs:
+    - 10.20.1.0/24
+    - 10.20.2.0/24
+  tags:
+    Owner: platform
+    CostCenter: shared-network
+```
 
-All workflow executions are logged in GitHub Actions and visible in the Actions tab of each repository.
+The workflow converts this to `.elephant.generated.auto.tfvars.json` and passes it via `-var-file`. Use Elephant variable sets or GitHub environment secrets for sensitive values.
+
+---
+
+## GitHub Secrets and Variables
+
+### Required
+
+| Name | Type | Description |
+|------|------|-------------|
+| `AWS_REGION` | Variable | AWS region for the pipeline |
+| `PIPELINE_ROLE_ARN` | Secret | IAM role ARN assumed by GitHub Actions |
+| `TF_STATE_BUCKET` | Variable | S3 bucket for Terraform state |
+
+### Optional
+
+| Name | Type | Description |
+|------|------|-------------|
+| `TF_STATE_KMS_KEY_ARN` | Secret | KMS key for state encryption |
+| `INFRACOST_API_KEY` | Secret | Enables Infracost cost estimates |
+| `AI_REVIEW_PROVIDER` | Variable | `claude`, `gemini`, or empty |
+| `ANTHROPIC_API_KEY` | Secret | Required for Claude AI review |
+| `GEMINI_API_KEY` | Secret | Required for Gemini AI review |
+| `GEMINI_MODEL` | Variable | Gemini model ID (e.g. `gemini-2.5-flash`) |
+| `BACKEND_EXISTS` | Variable | Skip S3 bucket creation if `true` |
+
+Per-workspace environment variables (`TERRAFORM_ROLE_ARN`, `TF_WORKSPACE`, `TF_WORKING_DIR`, `TF_DEPENDENCIES`, `TF_OUTPUTS_ARTIFACT`, `ELEPHANT_PROJECT`) are synced automatically by the app.
+
+Variable sets can target the organisation, a project, or a single workspace. Sensitive values are written as GitHub environment secrets and are never stored in the app config.
+
+---
+
+## PR Workflow Behavior
+
+### On pull request open, sync, or reopen
+
+1. Detect the changed Terraform workspace from the diff.
+2. Resolve dependency-linked changes to the downstream workspace; block unrelated multi-workspace changes.
+3. Block if upstream workspace state is missing.
+4. Inject upstream outputs as `TF_VAR_*` values.
+5. Load workspace YAML variables into a generated var file.
+6. Run `terraform plan` and export `tfplan.bin` and `plan.json`.
+7. Run Checkov, TFLint, and TFSec.
+8. Run Infracost if configured.
+9. Post or update the Terraform PR comment (plan + scan + cost + AI review).
+10. Fail the workflow if plan errored (after comments are posted).
+
+### On merge (push to target branch)
+
+Apply only runs when the pushed commit is from a verified merged PR. Direct pushes are skipped entirely.
+
+1. Verify the commit came from a merged PR.
+2. Detect the workspace from the push diff.
+3. Validate upstream state; block apply if missing.
+4. Inject upstream outputs as `TF_VAR_*` values.
+5. Download the saved `tfplan.bin` artifact.
+6. Run `terraform apply -auto-approve tfplan.bin`.
+7. Capture `terraform output -json` and upload as the workspace outputs artifact.
+
+### On direct push
+
+- Runs Terraform plan and logs results.
+- Skips PR comments and AI review.
+
+### Manual dispatch
+
+Manual runs never apply infrastructure. Available operations: `plan`, `drift`, `destroy`, `state-pull`, `state-versions`, `lock-audit`, `unlock`.
+
+---
+
+## AI Review
+
+AI review is appended to the existing Terraform PR comment.
+
+### Providers
+
+| Provider | Secret Required |
+|----------|----------------|
+| Claude Sonnet | `ANTHROPIC_API_KEY` |
+| Gemini | `GEMINI_API_KEY` + `GEMINI_MODEL` |
+| Disabled | — |
+
+### Gemini model options
+
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.0-flash`
+- Custom model ID
+
+### What the AI receives
+
+- Terraform source from the workspace directory
+- Terraform plan JSON
+- Checkov and TFSec results
+- Infracost JSON (if available)
+- Workspace name, working directory, and dependencies
+
+### Verdicts
+
+| Verdict | Effect |
+|---------|--------|
+| Approve | PR check passes |
+| Caution | PR check passes with warning |
+| Block | PR check fails — critical issue found |
+
+Each finding includes an evidence line indicating whether it was flagged by Checkov, TFSec, or inferred by the AI. The review also checks production edge cases scanners commonly miss: VPC Flow Logs, ALB/CloudFront/API Gateway/RDS/EKS logging, network routing, and module-level inputs/outputs.
+
+---
+
+## Infracost
+
+Infracost is optional. Without an API key the workflow writes an empty `infracost.json` and continues.
+
+When enabled:
+
+```bash
+infracost diff \
+  --path plan.json \
+  --format json \
+  --out-file infracost.json
+```
+
+The PR comment always includes an Infrastructure Cost Estimate section. If Infracost is disabled or produces no data, the section explains that instead of disappearing.
+
+FinOps features:
+
+- PR cost estimate sections
+- Per-workspace and project-level monthly cost rollups in the TUI
+- Budget thresholds that warn or fail PRs on monthly deltas
+- Cost ownership tag compliance checks
+- Cost history artifacts retained after apply
+
+---
+
+## Security and Cost Governance
+
+SecOps features:
+
+- Checkov, TFLint, and TFSec on every PR
+- SARIF upload for GitHub code scanning annotations
+- OPA/Conftest policy checks for repos with a `policy/` or `policies/` directory
+- IAM Access Analyzer validation for changed IAM policy documents
+- GitHub OIDC — no long-lived AWS credentials
+- GitHub environment approvals before apply
+- Per-workspace IAM role overrides
+- Encrypted S3 state with optional KMS
+- Scheduled drift detection and S3 state-lock audit artifacts
+
+Governance settings live under **Settings → Governance**. Threshold and policy checks default to warning unless "fail PRs" is explicitly enabled. In PR comments, the Governance section is collapsed by default and each subsection is individually expandable.
+
+---
+
+## Destroy Workflow
+
+The destroy flow requires multiple confirmations:
+
+1. Select the environment or branch to destroy.
+2. Read the destruction warning.
+3. Type the environment name to confirm.
+4. Confirm one final time.
+5. `destroy.yml` is triggered.
+6. State is validated before destroy runs.
+7. The state bucket is preserved if no resources remain.
+
+---
+
+## Generated Files
+
+Elephant TF CI commits these files to the selected repository branch:
+
+```text
+.github/workflows/terraform.yml
+.github/workflows/destroy.yml
+<workspace-dir>/backend.tf          # one per workspace
+```
+
+`terraform.yml` includes workspace and environment dropdowns for manual runs, automatic PR workspace detection, upstream state checks, dependency output injection, YAML var file conversion, S3 bucket setup, plan/scan/cost/AI review steps, artifact sharing between plan and apply jobs, and GitHub environment reviewer sync.
+
+---
+
+## Management View
+
+Open **Projects** to inspect managed repositories and workspaces.
+
+```text
+Branch      main
+Default     network-prod
+Count       3 workspaces
+Dependency  2 upstream links
+PR Policy   one workspace per PR; upstream state required
+
+* network-prod   infra/network/prod   depends: none
+  app-prod       infra/app/prod       depends: network-prod
+  monitoring     infra/monitoring     depends: none
+```
+
+From the management view you can:
+
+- Open workspace overview, variables, state key, outputs artifact, and dependency details
+- Open a DAG view grouped by dependency waves
+- Dispatch plan runs per wave or across all waves in order
+- Run workspace operations: plan, destroy, state pull, state versions, force unlock
+- Edit, move, or delete workspace registry entries
+- Cache and inspect workspace outputs, state versions, and Infracost summaries
+- View sync status for config, keychain auth, GitHub environments, and workspace variables
+
+The **Runs** screen shows recent GitHub Actions runs across all managed repositories with job/step status, duration, live log streaming, log download, rerun, and cancel controls.
+
+---
+
+## Teams and Collaboration
+
+Configure teams from **Settings** or a project detail screen.
+
+| Role | Effect |
+|------|--------|
+| `read` | Project metadata visibility in the TUI only |
+| `write` | Synced as required reviewer on matching GitHub environments |
+| `admin` | Synced as required reviewer on matching GitHub environments |
+
+Teams can be scoped to a single project or applied globally. GitHub enforces approvals at the environment gate — only users in the required reviewer path can approve apply.
+
+---
+
+## Development
+
+```bash
+git clone https://github.com/King-Zingelwayo/elephant-tf-ci
+cd elephant-tf-ci
+go mod tidy
+make build
+./bin/elephant-tf-ci
+```
+
+Build all platforms:
+
+```bash
+make build-all
+```
+
+Run tests:
+
+```bash
+go test ./...
+```
+
+---
+
+## Release
+
+```bash
+./release.sh          # patch bump
+./release.sh minor
+./release.sh major
+./release.sh v1.2.3
+```
+
+The script bumps the version, generates release notes, updates the changelog, builds binaries, verifies `--version`, and publishes through the release repo. Use `ALLOW_DIRTY=1` only when intentionally releasing from a dirty working tree.
 
 ---
 
 ## License
 
-MIT License — see the [LICENSE](LICENSE) file for details.
+MIT License. See `LICENSE` for details.
+
+---
+
+Sawubona. Happy building with Elephant TF CI.
